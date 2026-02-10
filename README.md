@@ -1,9 +1,9 @@
-# Five Words, 25 Letters
+# Five words 25 letters
 
-A high-performance Rust solver for the five words 25-letter word challange.
+Rust solver for the five words 25-letter challange.
 
 ## The Problem
-Find all unique sets of 5 words from a dictionary (370k+ words) that together contain exactly 25 unique letters of the English alphabet.
+Find all unique sets of 5 words (len == 5) from a txt file (370k+ words) that together contain exactly 25 unique letters of the English alphabet.
 
 ## Performance
 - **Average Search Time**: ~60ms
