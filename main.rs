@@ -1,0 +1,184 @@
+use std::collections::HashMap;
+use std::fs;
+use std::io::{BufWriter, Write};
+use std::time::Instant;
+
+macro_rules! benchmark {
+    ($n:expr, $code:expr) => {{
+        let mut total = std::time::Duration::ZERO;
+        let mut res = None;
+        for _ in 0..$n {
+            let start = Instant::now();
+            let r = $code;
+            total += start.elapsed();
+            if res.is_none() {
+                res = Some(r);
+            }
+        }
+        (res.unwrap(), total / $n)
+    }};
+}
+
+fn solve() -> (usize, usize) {
+    let c: String = fs::read_to_string("words_alpha.txt").expect("Could not read words_alpha.txt");
+    let s: &'static str = Box::leak(c.into_boxed_str());
+
+    let mut masks: Vec<u32> = Vec::new();
+    let mut mask_to_bytes: HashMap<u32, [u8; 5]> = HashMap::new();
+    let mut seen: Vec<u8> = vec![0u8; 1 << 23];
+
+    for l in s.lines() {
+        if l.len() == 5 {
+            let b: &[u8] = l.as_bytes();
+            let m: u32 = (1u32 << (b[0].wrapping_sub(b'a')))
+                | (1u32 << (b[1].wrapping_sub(b'a')))
+                | (1u32 << (b[2].wrapping_sub(b'a')))
+                | (1u32 << (b[3].wrapping_sub(b'a')))
+                | (1u32 << (b[4].wrapping_sub(b'a')));
+
+            if m.count_ones() == 5 {
+                let bi: usize = (m >> 3) as usize;
+                let bt: u8 = (m & 7) as u8;
+
+                if (seen[bi] >> bt) & 1 == 0 {
+                    seen[bi] |= 1 << bt;
+                    masks.push(m);
+                    let mut wb: [u8; 5] = [0u8; 5];
+                    wb.copy_from_slice(b);
+                    mask_to_bytes.insert(m, wb);
+                }
+            }
+        }
+    }
+
+    let order_chars: &str = "qxjzvfwbkgpmhdcytlnuroisea";
+    let order: Vec<usize> = order_chars
+        .bytes()
+        .map(|b: u8| (b - b'a') as usize)
+        .collect();
+
+    let mut ltm: Vec<Vec<u32>> = (0..26).map(|_| Vec::new()).collect();
+    for mask_ref in &masks {
+        let mask: u32 = *mask_ref;
+        let mut t: u32 = mask;
+        while t != 0 {
+            let i: usize = t.trailing_zeros() as usize;
+            ltm[i].push(mask);
+            t &= t - 1;
+        }
+    }
+
+    let out_file: fs::File = fs::File::create("rust_out.txt").unwrap();
+    let mut writer: BufWriter<fs::File> = BufWriter::new(out_file);
+    let mut count: usize = 0;
+
+    for m_l in 0..26 {
+        let target: u32 = ((1u32 << 26) - 1) ^ (1 << m_l);
+        let mut stack: [(u32, usize); 6] = [(0u32, 0usize); 6];
+        stack[0] = (0, 0);
+        let mut d: usize = 0;
+        while d < 5 {
+            let (cur, b_idx): (u32, usize) = stack[d];
+            let mut r_idx: usize = 0;
+            while r_idx < 26 {
+                let l: usize = order[r_idx];
+                if ((target >> l) & 1 == 1) && ((cur >> l) & 1 == 0) {
+                    break;
+                }
+                r_idx += 1;
+            }
+            if r_idx == 26 {
+                if d == 0 {
+                    break;
+                }
+                d -= 1;
+                stack[d].1 += 1;
+                continue;
+            }
+            let bucket: &Vec<u32> = &ltm[order[r_idx]];
+            let mut found: bool = false;
+            for i in b_idx..bucket.len() {
+                let m: u32 = bucket[i];
+                if (m & !target) == 0 && (cur & m) == 0 {
+                    stack[d].1 = i;
+                    d += 1;
+                    stack[d] = (cur | m, 0);
+                    if d == 5 {
+                        for x in 1..6 {
+                            let m_sub: u32 = stack[x].0 ^ stack[x - 1].0;
+                            let wb: &[u8; 5] = mask_to_bytes.get(&m_sub).unwrap();
+                            writer.write_all(wb).unwrap();
+                            writer.write_all(b" ").unwrap();
+                        }
+                        writer.write_all(b"\n").unwrap();
+                        count += 1;
+                        d -= 1;
+                        stack[d].1 += 1;
+                    }
+                    found = true;
+                    break;
+                }
+            }
+            if !found {
+                if d == 0 {
+                    break;
+                }
+                d -= 1;
+                stack[d].1 += 1;
+            }
+        }
+    }
+    writer.flush().unwrap();
+    drop(writer);
+    (count, masks.len())
+}
+
+fn main() {
+    let ((count, words), dur): ((usize, usize), std::time::Duration) = benchmark!(5, solve());
+    println!("Total time:   {}", format!("{:?}", dur));
+    println!("Unique words: {}", words);
+    println!("Unique sets:  {}", count);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn verify() {
+        let (count, _): (usize, usize) = solve();
+        assert_eq!(count, 538);
+        let out_content: String =
+            fs::read_to_string("rust_out.txt").expect("Could not read rust_out.txt");
+        let result_content: String =
+            fs::read_to_string("result.txt").expect("Could not read result.txt");
+
+        let mut actual: Vec<Vec<String>> = out_content
+            .lines()
+            .map(|l| {
+                let mut v: Vec<String> = l.split_whitespace().map(|s| s.to_string()).collect();
+                v.sort();
+                v
+            })
+            .collect();
+
+        actual.sort();
+
+        let mut expected: Vec<Vec<String>> = result_content
+            .lines()
+            .filter(|l| !l.trim().is_empty())
+            .map(|l| {
+                let mut v: Vec<String> = l.split_whitespace().map(|s| s.to_string()).collect();
+                v.sort();
+                v
+            })
+            .collect();
+
+        expected.sort();
+
+        assert_eq!(actual.len(), expected.len());
+        for (a, e) in actual.iter().zip(&expected) {
+            assert_eq!(a, e);
+        }
+    }
+}
