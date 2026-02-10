@@ -32,6 +32,29 @@ My adjusted implementation has minor adjustments - it doesn't print to the stdou
 make wordz-cpp
 ```
 
+I also made a C version (vibe coded 100%) inspired by Rust verison the thing I'm predicting is that cpp with DP is more optimized for diff hardware (the DP algorithm to be exact) and my mac doesn't utilize that well...
+
+Rust and C versions are on par in terms of performance.
+
+#### Outputs on my MAC:
+
+```bash
+janezsedeljsak@Janezs-MacBook-Pro wordscnt % make cpp
+Total time:   2612.62ms
+Unique words: 5977
+Unique sets:  538
+
+janezsedeljsak@Janezs-MacBook-Pro wordscnt % make c   
+Total time:   71.359200ms
+Unique words: 5977
+Unique sets:  538
+
+janezsedeljsak@Janezs-MacBook-Pro wordscnt % make rust
+Total time:   69.424483ms
+Unique words: 5977
+Unique sets:  538
+```
+
 ## License
 
 This project is under the GNU GPLv3 license.
