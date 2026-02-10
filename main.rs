@@ -148,9 +148,10 @@ fn solve() -> (usize, usize) {
 
 fn main() {
     let ((count, words), dur): ((usize, usize), std::time::Duration) = benchmark!(5, solve());
-    println!("Total time:   {}", format!("{:?}", dur));
+    let ms = dur.as_secs_f64() * 1000.0;
+    println!("{} solutions written to rust_out.txt.", count);
+    println!("Total time: {:.2}ms", ms);
     println!("Unique words: {}", words);
-    println!("Unique sets:  {}", count);
 }
 
 #[cfg(test)]

@@ -37,38 +37,30 @@ This project was inspired by the following video:
 #### C++ solution credits:
 
 This was the fastest solution presented by the author of the YT video
-[CPP solution](https://github.com/ilyanikolaevsky/five_words)
+[CPP solution](https://github.com/oisyn/parkerwords)
 
-My adjusted implementation has minor tweaks - we measure execution time and do a 5 time benchmark run and average these times :)
+My adjusted implementation has minor tweaks - we measure execution time and do a 5 time benchmark run and average these times and also add a verification test + I removed paralelism I wanted to see single core performance :)
 
 <b>Run the CPP solution</b>
 ```bash
 make cpp
 ```
 
-I also made a C version (vibe coded 100%) inspired by Rust verison the thing I'm predicting is that cpp with DP is more optimized for diff hardware (the DP algorithm to be exact) and my mac doesn't utilize that well...
-
-Rust and C versions are on par in terms of performance.
-
 #### Outputs on my MAC:
 
 ```bash
-janezsedeljsak@Janezs-MacBook-Pro wordscnt % make cpp
-Total time:   2612.62ms
-Unique words: 5977
-Unique sets:  538
-
-janezsedeljsak@Janezs-MacBook-Pro wordscnt % make c   
-Total time:   71.359200ms
-Unique words: 5977
-Unique sets:  538
-
 janezsedeljsak@Janezs-MacBook-Pro wordscnt % make rust
-Total time:   69.424483ms
+538 solutions written to rust_out.txt.
+Total time: 60.35ms
 Unique words: 5977
-Unique sets:  538
+
+janezsedeljsak@Janezs-MacBook-Pro wordscnt % make cpp
+538 solutions written to solutions.txt.
+Total time: 31.26ms
+Unique words: 5977
+janezsedeljsak@Janezs-MacBook-Pro wordscnt % 
 ```
 
 ## License
 
-This project is under the GNU GPLv3 license.
+This project is under the MIT license.

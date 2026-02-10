@@ -1,114 +1,213 @@
-#include <iostream>
+#include <bit>
 #include <vector>
-#include <algorithm>
-#include <fstream>
-#include <chrono>
 #include <string>
+#include <unordered_map>
+#include <iostream>
+#include <iomanip>
+#include <fstream>
+#include <algorithm>
+#include <array>
+#include <chrono>
+#include <sstream>
 
-using namespace std;
+using uint = unsigned int;
+using WordArray = std::array<uint, 5>;
 
-constexpr auto benchmark(int n, auto code) {
-    auto total = chrono::nanoseconds::zero();
-    for (int i = 0; i < n; ++i) {
-        auto start = chrono::high_resolution_clock::now();
-        code();
-        auto end = chrono::high_resolution_clock::now();
-        total += chrono::duration_cast<chrono::nanoseconds>(end - start);
-    }
-    return total / n;
+std::vector<uint> wordbits;
+std::vector<std::string> allwords;
+std::unordered_map<uint, size_t> bitstoindex;
+std::vector<uint> letterindex[26];
+uint letterorder[26];
+
+std::string_view getword(const char*& _str, const char* end)
+{
+    const char* str = _str;
+    while(str != end && (*str == '\n' || *str == '\r'))
+	{
+		if (++str == end)
+            return (_str = str), std::string_view{};
+	}
+
+    const char* start = str;
+    while(str != end && *str != '\n' && *str != '\r')
+        ++str;
+
+    _str = str;
+    return std::string_view{ start, str };
 }
 
-vector<string> LoadWords(string filename) {
-    vector<string> words;
-    ifstream file(filename);
-    vector<bool> seen(26 * 26 * 26 * 26 * 26);
-    string word;
-    while (file >> word) {
-        if (word.length() != 5) continue;
-        string tmp = word;
-        sort(tmp.begin(), tmp.end());
-        bool bad_word = false;
-        for (int i = 0; i < 4; ++i) {
-            if (tmp[i] == tmp[i + 1]) {
-                bad_word = true;
-                break;
-            }
-        }
-        if (bad_word) continue;
-        int hash = 0;
-        for (int i = 0; i < 5; ++i) {
-            hash = hash * 26 + tmp[i] - 'a';
-        }
-        if (seen[hash]) continue;
-        seen[hash] = true;
-        words.push_back(word);
-    }
-    return words;
+uint getbits(std::string_view word)
+{
+    uint r = 0;
+    for (char c : word)
+        r |= 1 << (c - 'a');
+    return r;
 }
 
-int Solve(const vector<string>& words) {
-    vector<vector<bool>> can_construct(5, vector<bool>(1 << 26));
-    vector<int> masks(words.size());
-    for (int i = 0; i < (int)words.size(); ++i) {
-        int mask = 0;
-        for (auto c : words[i]) {
-            mask |= 1 << (c - 'a');
-        }
-        masks[i] = mask;
-        can_construct[0][mask] = true;
-    }
-    for (int cnt = 0; cnt < 4; ++cnt) {
-        for (int mask = 0; mask < (1 << 26); ++mask) {
-            if (!can_construct[cnt][mask]) continue;
-            for (int i = 0; i < (int)words.size(); ++i) {
-                if ((masks[i] & mask) == 0) {
-                    can_construct[cnt + 1][masks[i] | mask] = true;
-                }
-            }
+void readwords(const char* file)
+{
+	struct { int f, l; } freq[26] = { };
+	for (int i = 0; i < 26; i++)
+		freq[i].l = i;
+
+    std::vector<char> buf;
+    std::ifstream in(file, std::ios::binary);
+    in.seekg(0, std::ios::end);
+    buf.resize(in.tellg());
+    in.seekg(0, std::ios::beg);
+    in.read(&buf[0], buf.size());
+
+    const char* str = &buf[0];
+	const char* strEnd = str + buf.size();
+
+    std::string_view word;
+    while(!(word = getword(str, strEnd)).empty())
+    {
+        if (word.size() != 5)
+            continue;
+        uint bits = getbits(word);
+        if (std::popcount(bits) != 5)
+            continue;
+
+        if (!bitstoindex.contains(bits))
+        {
+            bitstoindex[bits] = wordbits.size();
+            wordbits.push_back(bits);
+            allwords.emplace_back(word);
+
+            for(char c: word)
+                freq[c - 'a'].f++;
         }
     }
 
-    ofstream out("cpp_out.txt");
-    int count = 0;
-    vector<int> current;
-    
-    auto collect = [&](auto self, int mask, int start_from, int depth) -> void {
-        if (depth == 5) {
-            for (int i = 0; i < 5; ++i) {
-                out << words[current[i]] << (i == 4 ? "" : " ");
-            }
-            out << "\n";
-            count++;
-            return;
-        }
-        for (int cur_word = start_from; cur_word < (int)masks.size(); ++cur_word) {
-            if (((mask & masks[cur_word]) == masks[cur_word]) && (depth == 4 || can_construct[3 - depth][mask ^ masks[cur_word]])) {
-                current.push_back(cur_word);
-                self(self, mask ^ masks[cur_word], cur_word + 1, depth + 1);
-                current.pop_back();
-            }
-        }
+    std::sort(std::begin(freq), std::end(freq), [](auto a, auto b) { return a.f < b.f; });
+	uint reverseletterorder[26];
+    for (int i = 0; i < 26; i++)
+	{
+		letterorder[i] = freq[i].l;
+        reverseletterorder[freq[i].l] = i;
+    }
+
+    for (uint w : wordbits)
+    {
+        uint m = w;
+		uint letter = std::countr_zero(m);
+        uint min = reverseletterorder[letter];
+		m &= m - 1; 
+        while(m)
+        {
+            letter = std::countr_zero(m);
+            min = std::min(min, reverseletterorder[letter]);
+			m &= m - 1;
+		}
+
+        letterindex[min].push_back(w);
+    }
+}
+
+void findwords(std::vector<WordArray>& solutions, uint totalbits, int numwords, WordArray words, uint maxLetter, bool skipped)
+{
+	if (numwords == 5)
+	{
+		solutions.push_back(words);
+		return;
+	}
+
+	for (uint i = maxLetter; i < 26; i++)
+	{
+        uint letter = letterorder[i];
+        uint m = 1 << letter;
+        if (totalbits & m)
+            continue;
+
+        for (uint w : letterindex[i])
+		{
+			if (totalbits & w)
+				continue;
+
+			words[numwords] = w;
+			findwords(solutions, totalbits | w, numwords + 1, words, i + 1, skipped);
+		}
+
+        if (skipped)
+            break;
+        skipped = true;
+	}
+}
+
+int main()
+{
+    using clock = std::chrono::high_resolution_clock;
+
+    readwords("words_alpha.txt");
+
+    long long totalProcessNs = 0;
+    std::vector<WordArray> finalSolutions;
+
+    for (int iter = 0; iter < 5; iter++)
+    {
+        std::vector<WordArray> solutions;
+        solutions.reserve(10000);
+        auto t0 = clock::now();
+        WordArray words = { };
+        findwords(solutions, 0, 0, words, 0, false);
+        auto t1 = clock::now();
+        totalProcessNs += std::chrono::duration_cast<std::chrono::nanoseconds>(t1 - t0).count();
+        if (iter == 0) finalSolutions = std::move(solutions);
+    }
+
+	std::ofstream out("cpp_out.txt");
+    for (auto& words : finalSolutions)
+    {
+        for (auto w : words)
+            out << allwords[bitstoindex[w]] << "\t";
+        out << "\n";
     };
 
-    for (int mask = 0; mask < (1 << 26); ++mask) {
-        if (can_construct[4][mask]) {
-            collect(collect, mask, 0, 0);
-        }
-    }
-    out.close();
-    return count;
-}
+    double avgMs = (totalProcessNs / 5) / 1e6;
+    std::cout << std::fixed << std::setprecision(2);
+    std::cout << finalSolutions.size() << " solutions written to solutions.txt.\n";
+    std::cout << "Total time: " << avgMs << "ms\n";
+    std::cout << "Unique words: " << wordbits.size() << "\n";
 
-int main() {
-    vector<string> words = LoadWords("words_alpha.txt");
-    int count = 0;
-    auto avg_ns = benchmark(5, [&]() {
-        count = Solve(words);
-    });
-    
-    double ms = static_cast<double>(avg_ns.count()) / 1'000'000.0;
-    cout << "Total time:   " << ms << "ms" << endl;
-    cout << "Unique words: " << words.size() << endl;
-    cout << "Unique sets:  " << count << endl;
-    return 0;
+#ifdef RUN_TESTS
+    std::ifstream res_file("result.txt");
+    if (!res_file) {
+        std::cout << "Verification skipped: result.txt not found.\n";
+        return 0;
+    }
+
+    auto parse_to_masks = [&](std::string_view l) {
+        std::vector<uint> masks;
+        std::string word;
+        std::stringstream ss{std::string(l)};
+        while (ss >> word) {
+            masks.push_back(getbits(word));
+        }
+        std::sort(masks.begin(), masks.end());
+        return masks;
+    };
+
+    std::vector<std::vector<uint>> expected;
+    std::string line;
+    while (std::getline(res_file, line)) {
+        if (line.empty()) continue;
+        expected.push_back(parse_to_masks(line));
+    }
+    std::sort(expected.begin(), expected.end());
+
+    std::vector<std::vector<uint>> actual;
+    for (auto& sol : finalSolutions) {
+        std::vector<uint> masks(sol.begin(), sol.end());
+        std::sort(masks.begin(), masks.end());
+        actual.push_back(masks);
+    }
+    std::sort(actual.begin(), actual.end());
+
+    if (actual == expected) {
+        std::cout << "Verification: PASS\n";
+    } else {
+        std::cout << "Verification: FAIL (Actual size: " << actual.size() << ", Expected size: " << expected.size() << ")\n";
+    }
+#endif
 }

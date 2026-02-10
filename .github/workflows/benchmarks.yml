@@ -18,9 +18,6 @@ jobs:
     - name: Run Rust Benchmark
       run: make rust
 
-    - name: Run C Benchmark
-      run: make c
-
     - name: Run C++ Benchmark
       run: make cpp
 
