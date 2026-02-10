@@ -52,13 +52,8 @@ fn solve() -> (usize, usize) {
             continue;
         }
 
-        use std::collections::btree_map::Entry;
-        match mask_to_bytes.entry(m) {
-            Entry::Vacant(e) => {
-                e.insert(b);
-                masks.push(m);
-            }
-            Entry::Occupied(_) => {}
+        if mask_to_bytes.insert(m, b).is_none() {
+            masks.push(m);
         }
     }
 
