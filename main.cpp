@@ -151,18 +151,20 @@ int main()
         auto t0 = clock::now();
         WordArray words = { };
         findwords(solutions, 0, 0, words, 0, false);
+
+        std::ofstream out("cpp_out.txt");
+        for (auto& s : solutions)
+        {
+            for (auto w : s)
+                out << allwords[bitstoindex[w]] << "\t";
+            out << "\n";
+        }
+        out.close();
+
         auto t1 = clock::now();
         totalProcessNs += std::chrono::duration_cast<std::chrono::nanoseconds>(t1 - t0).count();
         if (iter == 0) finalSolutions = std::move(solutions);
     }
-
-	std::ofstream out("cpp_out.txt");
-    for (auto& words : finalSolutions)
-    {
-        for (auto w : words)
-            out << allwords[bitstoindex[w]] << "\t";
-        out << "\n";
-    };
 
     double avgMs = (totalProcessNs / 5) / 1e6;
     std::cout << std::fixed << std::setprecision(2);

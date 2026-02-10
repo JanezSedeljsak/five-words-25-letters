@@ -11,13 +11,13 @@ The rust based bitwise magic implementation can be devided into a few steps:
 
 - first we read in the whole file into a str and then filter out lines with 5 characters with no repeated characters using bitmasks.
 
-- we create the masks and mark seen masks in a vector for constant lookup + we also remove angorams (keep only the first one).
+- we create the masks and calculate the frequency of each letter for a optimal search order + we also remove angorams (keep only the first one).
 
-- build the lookup table for each letter (bucket) and order the letters by rarity - we will search for the least common letters first (Q, X, J).
+- move the words into buckets based on their rarest letter (we search for the rarest letters first).
 
-- we use a stack to keep track of the current path and search for solutions using depth-first search (recursion is expensive).
+- we use a stack to keep track of the current path and search for solutions using depth-first search (recursion is expensive). We also do a skip-one pruning (if we can't find a solution with the current letter we skip it and try the next one).
 
-- target is reached once we find 5 words with 25 uniq letters, then backtrack and continue - we find all the possible solution and write to output buffer.
+- target is reached once we find 5 words with 25 uniq letters, then backtrack and continue - we find all the possible solutions and collect them. at the end we print to output buffer.
 
 ## Performance
 - **Average Search Time**: ~60ms
@@ -49,16 +49,15 @@ make cpp
 #### Outputs on my MAC:
 
 ```bash
-janezsedeljsak@Janezs-MacBook-Pro wordscnt % make rust
+anezsedeljsak@Janezs-MacBook-Pro wordscnt % make rust
 538 solutions written to rust_out.txt.
-Total time: 60.35ms
+Total time: 35.38ms
 Unique words: 5977
 
 janezsedeljsak@Janezs-MacBook-Pro wordscnt % make cpp
 538 solutions written to cpp_out.txt.
-Total time: 31.26ms
+Total time: 31.09ms
 Unique words: 5977
-janezsedeljsak@Janezs-MacBook-Pro wordscnt % 
 ```
 
 ## License

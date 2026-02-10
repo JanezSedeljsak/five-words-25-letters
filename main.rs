@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::HashMap;
 use std::fs;
 use std::io::{BufWriter, Write};
 use std::time::Instant;
@@ -19,23 +19,12 @@ macro_rules! benchmark {
     }};
 }
 
-const ORDER: [usize; 26] = {
-    let order_chars = b"qxjzvfwbkgpmhdcytlnuroisea";
-    let mut result = [0; 26];
-    let mut i = 0;
-    while i < 26 {
-        result[i] = (order_chars[i] - b'a') as usize;
-        i += 1;
-    }
-    result
-};
-
 fn solve() -> (usize, usize) {
     let c: String = fs::read_to_string("words_alpha.txt").expect("Could not read words_alpha.txt");
     let s: &'static str = Box::leak(c.into_boxed_str());
 
     let mut masks: Vec<u32> = Vec::with_capacity(15000);
-    let mut mask_to_bytes: BTreeMap<u32, &'static [u8]> = BTreeMap::new();
+    let mut mask_to_bytes: HashMap<u32, &'static [u8]> = HashMap::new();
 
     for l in s.lines() {
         if l.len() != 5 {
@@ -57,63 +46,79 @@ fn solve() -> (usize, usize) {
         }
     }
 
-    let mut ltm: Vec<Vec<u32>> = (0..26).map(|_| Vec::with_capacity(5000)).collect();
+    let mut freq: [(u32, usize); 26] = core::array::from_fn(|i| (0, i));
     for &mask in &masks {
-        let mut t: u32 = mask;
+        let mut t = mask;
         while t != 0 {
-            let i: usize = t.trailing_zeros() as usize;
-            ltm[i].push(mask);
+            freq[t.trailing_zeros() as usize].0 += 1;
             t &= t - 1;
         }
+    }
+    freq.sort();
+
+    let mut order = [0usize; 26];
+    let mut reverse_order = [0u32; 26];
+    for (i, &(_, l)) in freq.iter().enumerate() {
+        order[i] = l;
+        reverse_order[l] = i as u32;
+    }
+
+    let mut ltm: Vec<Vec<u32>> = (0..26).map(|_| Vec::new()).collect();
+    for &mask in &masks {
+        let mut t = mask;
+        let mut min_rank = u32::MAX;
+        while t != 0 {
+            let l = t.trailing_zeros();
+            min_rank = min_rank.min(reverse_order[l as usize]);
+            t &= t - 1;
+        }
+        ltm[min_rank as usize].push(mask);
     }
 
     let out_file: fs::File = fs::File::create("rust_out.txt").unwrap();
     let mut writer: BufWriter<fs::File> = BufWriter::with_capacity(65536, out_file);
     let mut count: usize = 0;
 
-    for m_l in 0..26 {
-        let target: u32 = ((1u32 << 26) - 1) ^ (1 << m_l);
-        let mut stack: [(u32, usize); 6] = [(0u32, 0usize); 6];
-        stack[0] = (0, 0);
-        let mut d: usize = 0;
+    let mut stack: [(u32, usize, usize, bool); 6] = [(0, 0, 0, false); 6];
+    stack[0] = (0, 0, 0, false);
+    let mut d: usize = 0;
 
-        'outer: loop {
-            if d == 5 {
-                break;
-            }
+    'outer: loop {
+        if d == 5 {
+            break;
+        }
 
-            let (cur, b_idx): (u32, usize) = stack[d];
-            let missing = target & !cur;
+        let (cur, mut word_start, lo_idx, skipped) = stack[d];
+        let mut skipped = skipped;
 
-            let mut r_idx: usize = 0;
-            while r_idx < 26 {
-                let l = ORDER[r_idx];
-                if (missing >> l) & 1 == 1 {
-                    break;
-                }
-                r_idx += 1;
-            }
-
-            if r_idx == 26 {
+        let mut r_idx = lo_idx;
+        loop {
+            if r_idx >= 26 {
                 if d == 0 {
                     break 'outer;
                 }
                 d -= 1;
                 stack[d].1 += 1;
+                continue 'outer;
+            }
+
+            let letter = order[r_idx];
+            if (cur >> letter) & 1 == 1 {
+                r_idx += 1;
                 continue;
             }
 
-            let bucket: &[u32] = &ltm[ORDER[r_idx]];
+            let bucket: &[u32] = &ltm[r_idx];
             let bucket_len = bucket.len();
-            let mut found: bool = false;
+            let mut found = false;
 
-            let mut i = b_idx;
+            let mut i = word_start;
             while i < bucket_len {
                 let m: u32 = unsafe { *bucket.get_unchecked(i) };
-                if (m & !target) == 0 && (cur & m) == 0 {
-                    stack[d].1 = i;
+                if (cur & m) == 0 {
+                    stack[d] = (cur, i, r_idx, skipped);
                     d += 1;
-                    stack[d] = (cur | m, 0);
+                    stack[d] = (cur | m, 0, r_idx + 1, skipped);
 
                     if d == 5 {
                         for x in 1..6 {
@@ -132,17 +137,26 @@ fn solve() -> (usize, usize) {
                 }
                 i += 1;
             }
-            if !found {
+
+            if found {
+                continue 'outer;
+            }
+
+            if skipped {
                 if d == 0 {
                     break 'outer;
                 }
                 d -= 1;
                 stack[d].1 += 1;
+                continue 'outer;
             }
+            skipped = true;
+            r_idx += 1;
+            word_start = 0;
+            stack[d] = (cur, 0, r_idx, true);
         }
     }
     writer.flush().unwrap();
-    drop(writer);
     (count, masks.len())
 }
 
