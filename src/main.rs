@@ -1,6 +1,5 @@
 use std::fs;
 use std::time::Instant;
-use std::collections::BTreeMap;
 
 macro_rules! benchmark {
     ($n:expr, $code:expr) => {{
@@ -16,11 +15,12 @@ macro_rules! benchmark {
     }};
 }
 
-fn solve() -> (Vec<[u32; 5]>, BTreeMap<u32, &'static str>) {
+fn solve() -> (Vec<[u32; 5]>, usize) {
     let content = fs::read_to_string("words_alpha.txt").expect("Could not read words_alpha.txt");
     let s: &'static str = Box::leak(content.into_boxed_str());
 
-    let mut mask_to_word: BTreeMap<u32, &str> = BTreeMap::new();
+    let mut masks: Vec<u32> = Vec::with_capacity(6000);
+    let mut seen = vec![0u8; 1 << 23];
     for l in s.lines() {
         if l.len() == 5 {
             let b = l.as_bytes();
@@ -31,7 +31,12 @@ fn solve() -> (Vec<[u32; 5]>, BTreeMap<u32, &'static str>) {
             m |= 1 << (b[4].wrapping_sub(b'a'));
             
             if m.count_ones() == 5 {
-                mask_to_word.entry(m).or_insert(l);
+                let bi = (m >> 3) as usize;
+                let bt = (m & 7) as u8;
+                if (seen[bi] >> bt) & 1 == 0 {
+                    seen[bi] |= 1 << bt;
+                    masks.push(m);
+                }
             }
         }
     }
@@ -39,8 +44,8 @@ fn solve() -> (Vec<[u32; 5]>, BTreeMap<u32, &'static str>) {
     let order_chars = "qxjzvfwbkgpmhdcytlnuroisea";
     let order: Vec<usize> = order_chars.bytes().map(|b| (b - b'a') as usize).collect();
     
-    let mut letter_to_masks: Vec<Vec<u32>> = (0..26).map(|_| Vec::with_capacity(10000)).collect();
-    for &mask in mask_to_word.keys() {
+    let mut letter_to_masks: Vec<Vec<u32>> = (0..26).map(|_| Vec::with_capacity(1024)).collect();
+    for &mask in &masks {
         let mut m = mask;
         while m != 0 {
             let i = m.trailing_zeros() as usize;
@@ -101,13 +106,13 @@ fn solve() -> (Vec<[u32; 5]>, BTreeMap<u32, &'static str>) {
             }
         }
     }
-    (mask_results, mask_to_word)
+    (mask_results, masks.len())
 }
 
 fn main() {
-    let ((mask_results, mask_to_word), duration) = benchmark!(5, solve());
+    let ((mask_results, unique_words), duration) = benchmark!(5, solve());
     println!("Total time:   {:?}", duration);
-    println!("Unique words: {}", mask_to_word.len());
+    println!("Unique words: {}", unique_words);
     println!("Unique sets:  {}", mask_results.len());
 }
 
