@@ -49,7 +49,7 @@ make cpp
 #### Outputs on my MAC:
 
 ```bash
-anezsedeljsak@Janezs-MacBook-Pro wordscnt % make rust
+janezsedeljsak@Janezs-MacBook-Pro wordscnt % make rust
 538 solutions written to rust_out.txt.
 Total time: 35.38ms
 Unique words: 5977
