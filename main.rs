@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use std::fs;
 use std::io::{BufWriter, Write};
 use std::time::Instant;
@@ -35,8 +35,7 @@ fn solve() -> (usize, usize) {
     let s: &'static str = Box::leak(c.into_boxed_str());
 
     let mut masks: Vec<u32> = Vec::with_capacity(15000);
-    let mut mask_to_bytes: HashMap<u32, &'static [u8]> = HashMap::with_capacity(15000);
-    let mut seen: Vec<u8> = vec![0u8; 1 << 23];
+    let mut mask_to_bytes: BTreeMap<u32, &'static [u8]> = BTreeMap::new();
 
     for l in s.lines() {
         if l.len() != 5 {
@@ -53,13 +52,13 @@ fn solve() -> (usize, usize) {
             continue;
         }
 
-        let bi: usize = (m >> 3) as usize;
-        let bt: u8 = (m & 7) as u8;
-
-        if (seen[bi] >> bt) & 1 == 0 {
-            seen[bi] |= 1 << bt;
-            masks.push(m);
-            mask_to_bytes.insert(m, b);
+        use std::collections::btree_map::Entry;
+        match mask_to_bytes.entry(m) {
+            Entry::Vacant(e) => {
+                e.insert(b);
+                masks.push(m);
+            }
+            Entry::Occupied(_) => {}
         }
     }
 
@@ -163,6 +162,15 @@ fn main() {
 mod tests {
     use super::*;
 
+    fn get_mask(s: &str) -> u32 {
+        let b = s.as_bytes();
+        (1u32 << (b[0].wrapping_sub(b'a')))
+            | (1u32 << (b[1].wrapping_sub(b'a')))
+            | (1u32 << (b[2].wrapping_sub(b'a')))
+            | (1u32 << (b[3].wrapping_sub(b'a')))
+            | (1u32 << (b[4].wrapping_sub(b'a')))
+    }
+
     #[test]
     fn verify() {
         let (count, _): (usize, usize) = solve();
@@ -172,10 +180,10 @@ mod tests {
         let result_content: String =
             fs::read_to_string("result.txt").expect("Could not read result.txt");
 
-        let mut actual: Vec<Vec<String>> = out_content
+        let mut actual: Vec<Vec<u32>> = out_content
             .lines()
             .map(|l| {
-                let mut v: Vec<String> = l.split_whitespace().map(|s| s.to_string()).collect();
+                let mut v: Vec<u32> = l.split_whitespace().map(get_mask).collect();
                 v.sort();
                 v
             })
@@ -183,11 +191,11 @@ mod tests {
 
         actual.sort();
 
-        let mut expected: Vec<Vec<String>> = result_content
+        let mut expected: Vec<Vec<u32>> = result_content
             .lines()
             .filter(|l| !l.trim().is_empty())
             .map(|l| {
-                let mut v: Vec<String> = l.split_whitespace().map(|s| s.to_string()).collect();
+                let mut v: Vec<u32> = l.split_whitespace().map(get_mask).collect();
                 v.sort();
                 v
             })
