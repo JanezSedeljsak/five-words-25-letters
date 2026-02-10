@@ -19,47 +19,52 @@ macro_rules! benchmark {
     }};
 }
 
+const ORDER: [usize; 26] = {
+    let order_chars = b"qxjzvfwbkgpmhdcytlnuroisea";
+    let mut result = [0; 26];
+    let mut i = 0;
+    while i < 26 {
+        result[i] = (order_chars[i] - b'a') as usize;
+        i += 1;
+    }
+    result
+};
+
 fn solve() -> (usize, usize) {
     let c: String = fs::read_to_string("words_alpha.txt").expect("Could not read words_alpha.txt");
     let s: &'static str = Box::leak(c.into_boxed_str());
 
-    let mut masks: Vec<u32> = Vec::new();
-    let mut mask_to_bytes: HashMap<u32, [u8; 5]> = HashMap::new();
+    let mut masks: Vec<u32> = Vec::with_capacity(15000);
+    let mut mask_to_bytes: HashMap<u32, &'static [u8]> = HashMap::with_capacity(15000);
     let mut seen: Vec<u8> = vec![0u8; 1 << 23];
 
     for l in s.lines() {
-        if l.len() == 5 {
-            let b: &[u8] = l.as_bytes();
-            let m: u32 = (1u32 << (b[0].wrapping_sub(b'a')))
-                | (1u32 << (b[1].wrapping_sub(b'a')))
-                | (1u32 << (b[2].wrapping_sub(b'a')))
-                | (1u32 << (b[3].wrapping_sub(b'a')))
-                | (1u32 << (b[4].wrapping_sub(b'a')));
+        if l.len() != 5 {
+            continue;
+        }
+        let b: &[u8] = l.as_bytes();
+        let m: u32 = (1u32 << (b[0].wrapping_sub(b'a')))
+            | (1u32 << (b[1].wrapping_sub(b'a')))
+            | (1u32 << (b[2].wrapping_sub(b'a')))
+            | (1u32 << (b[3].wrapping_sub(b'a')))
+            | (1u32 << (b[4].wrapping_sub(b'a')));
 
-            if m.count_ones() == 5 {
-                let bi: usize = (m >> 3) as usize;
-                let bt: u8 = (m & 7) as u8;
+        if m.count_ones() != 5 {
+            continue;
+        }
 
-                if (seen[bi] >> bt) & 1 == 0 {
-                    seen[bi] |= 1 << bt;
-                    masks.push(m);
-                    let mut wb: [u8; 5] = [0u8; 5];
-                    wb.copy_from_slice(b);
-                    mask_to_bytes.insert(m, wb);
-                }
-            }
+        let bi: usize = (m >> 3) as usize;
+        let bt: u8 = (m & 7) as u8;
+
+        if (seen[bi] >> bt) & 1 == 0 {
+            seen[bi] |= 1 << bt;
+            masks.push(m);
+            mask_to_bytes.insert(m, b);
         }
     }
 
-    let order_chars: &str = "qxjzvfwbkgpmhdcytlnuroisea";
-    let order: Vec<usize> = order_chars
-        .bytes()
-        .map(|b: u8| (b - b'a') as usize)
-        .collect();
-
-    let mut ltm: Vec<Vec<u32>> = (0..26).map(|_| Vec::new()).collect();
-    for mask_ref in &masks {
-        let mask: u32 = *mask_ref;
+    let mut ltm: Vec<Vec<u32>> = (0..26).map(|_| Vec::with_capacity(5000)).collect();
+    for &mask in &masks {
         let mut t: u32 = mask;
         while t != 0 {
             let i: usize = t.trailing_zeros() as usize;
@@ -69,7 +74,7 @@ fn solve() -> (usize, usize) {
     }
 
     let out_file: fs::File = fs::File::create("rust_out.txt").unwrap();
-    let mut writer: BufWriter<fs::File> = BufWriter::new(out_file);
+    let mut writer: BufWriter<fs::File> = BufWriter::with_capacity(65536, out_file);
     let mut count: usize = 0;
 
     for m_l in 0..26 {
@@ -77,36 +82,49 @@ fn solve() -> (usize, usize) {
         let mut stack: [(u32, usize); 6] = [(0u32, 0usize); 6];
         stack[0] = (0, 0);
         let mut d: usize = 0;
-        while d < 5 {
+
+        'outer: loop {
+            if d == 5 {
+                break;
+            }
+
             let (cur, b_idx): (u32, usize) = stack[d];
+            let missing = target & !cur;
+
             let mut r_idx: usize = 0;
             while r_idx < 26 {
-                let l: usize = order[r_idx];
-                if ((target >> l) & 1 == 1) && ((cur >> l) & 1 == 0) {
+                let l = ORDER[r_idx];
+                if (missing >> l) & 1 == 1 {
                     break;
                 }
                 r_idx += 1;
             }
+
             if r_idx == 26 {
                 if d == 0 {
-                    break;
+                    break 'outer;
                 }
                 d -= 1;
                 stack[d].1 += 1;
                 continue;
             }
-            let bucket: &Vec<u32> = &ltm[order[r_idx]];
+
+            let bucket: &[u32] = &ltm[ORDER[r_idx]];
+            let bucket_len = bucket.len();
             let mut found: bool = false;
-            for i in b_idx..bucket.len() {
-                let m: u32 = bucket[i];
+
+            let mut i = b_idx;
+            while i < bucket_len {
+                let m: u32 = unsafe { *bucket.get_unchecked(i) };
                 if (m & !target) == 0 && (cur & m) == 0 {
                     stack[d].1 = i;
                     d += 1;
                     stack[d] = (cur | m, 0);
+
                     if d == 5 {
                         for x in 1..6 {
                             let m_sub: u32 = stack[x].0 ^ stack[x - 1].0;
-                            let wb: &[u8; 5] = mask_to_bytes.get(&m_sub).unwrap();
+                            let wb = unsafe { mask_to_bytes.get(&m_sub).unwrap_unchecked() };
                             writer.write_all(wb).unwrap();
                             writer.write_all(b" ").unwrap();
                         }
@@ -118,10 +136,11 @@ fn solve() -> (usize, usize) {
                     found = true;
                     break;
                 }
+                i += 1;
             }
             if !found {
                 if d == 0 {
-                    break;
+                    break 'outer;
                 }
                 d -= 1;
                 stack[d].1 += 1;
