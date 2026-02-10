@@ -5,6 +5,20 @@ Rust solver for the five words 25-letter challange.
 ## The Problem
 Find all unique sets of 5 words (len == 5) from a txt file (370k+ words) that together contain exactly 25 unique letters of the English alphabet.
 
+## The Algorithm (core idea)
+
+The rust based bitwise magic implementation can be devided into a few steps:
+
+- first we read in the whole file into a str and then filter out lines with 5 characters with no repeated characters using bitmasks.
+
+- we create the masks and mark seen masks in a vector for constant lookup + we also remove angorams (keep only the first one).
+
+- build the lookup table for each letter (bucket) and order the letters by rarity - we will search for the least common letters first (Q, X, J).
+
+- we use a stack to keep track of the current path and search for solutions using depth-first search (recursion is expensive).
+
+- target is reached once we find 5 words with 25 uniq letters, then backtrack and continue - we find all the possible solution and write to output buffer.
+
 ## Performance
 - **Average Search Time**: ~60ms
 - **Unique Solutions**: 538
@@ -12,7 +26,7 @@ Find all unique sets of 5 words (len == 5) from a txt file (370k+ words) that to
 ## Usage
 Run the search and verify results against `result.txt`:
 ```bash
-make wordz
+make rust
 ```
 
 ## Credits and Idea
@@ -25,11 +39,11 @@ This project was inspired by the following video:
 This was the fastest solution presented by the author of the YT video
 [CPP solution](https://github.com/ilyanikolaevsky/five_words)
 
-My adjusted implementation has minor adjustments - it doesn't print to the stdout it just collects into a vector since printing is not something i want to measure :)
+My adjusted implementation has minor tweaks - we measure execution time and do a 5 time benchmark run and average these times :)
 
 <b>Run the CPP solution</b>
 ```bash
-make wordz-cpp
+make cpp
 ```
 
 I also made a C version (vibe coded 100%) inspired by Rust verison the thing I'm predicting is that cpp with DP is more optimized for diff hardware (the DP algorithm to be exact) and my mac doesn't utilize that well...
