@@ -1,0 +1,28 @@
+name: Benchmarks
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Rust
+      uses: dtolnay/rust-toolchain@stable
+
+    - name: Run Rust Benchmark
+      run: make rust
+
+    - name: Run C Benchmark
+      run: make c
+
+    - name: Run C++ Benchmark
+      run: make cpp
+
+    - name: Cleanup
+      run: make clean
