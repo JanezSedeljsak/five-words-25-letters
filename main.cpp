@@ -166,7 +166,7 @@ int main()
 
     double avgMs = (totalProcessNs / 5) / 1e6;
     std::cout << std::fixed << std::setprecision(2);
-    std::cout << finalSolutions.size() << " solutions written to solutions.txt.\n";
+    std::cout << finalSolutions.size() << " solutions written to cpp_out.txt.\n";
     std::cout << "Total time: " << avgMs << "ms\n";
     std::cout << "Unique words: " << wordbits.size() << "\n";
 

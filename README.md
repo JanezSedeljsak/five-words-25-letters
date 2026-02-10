@@ -55,7 +55,7 @@ Total time: 60.35ms
 Unique words: 5977
 
 janezsedeljsak@Janezs-MacBook-Pro wordscnt % make cpp
-538 solutions written to solutions.txt.
+538 solutions written to cpp_out.txt.
 Total time: 31.26ms
 Unique words: 5977
 janezsedeljsak@Janezs-MacBook-Pro wordscnt % 

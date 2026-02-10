@@ -7,4 +7,4 @@ cpp:
 	@g++ -O3 -std=c++2b -march=native -pthread -o wordz-cpp main.cpp && ./wordz-cpp && rm wordz-cpp
 
 clean:
-	@rm -f rust_out.txt solutions.txt wordz wordz-test wordz-c .test_log wordz-cpp wordz-cpp-test
+	@rm -f rust_out.txt cpp_out.txt wordz wordz-test wordz-c .test_log wordz-cpp wordz-cpp-test
